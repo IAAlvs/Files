@@ -1,0 +1,5 @@
+{
+    "project": "Files.Tests",
+    "parallelizeTestCollections": true,
+    "parallelizeAssembly": true
+}
