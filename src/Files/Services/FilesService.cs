@@ -1,6 +1,6 @@
 using Files.Interfaces;
 using Files.Models;
-
+namespace Files.Services;
 public class FilesService : IFiles
 {
     private readonly IStorageService _storageService;
