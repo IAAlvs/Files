@@ -1,13 +1,14 @@
 using Files.Interfaces;
+namespace Files.Services;
 
 public class StorageService : IStorageService
 {
-    private readonly HttpClient _client;
+    private readonly IRequestInvoker _client;
     private readonly IConfiguration _config;
     private readonly string _urlDomain;
     private readonly string _storageKey;
 
-    public StorageService(IConfiguration config, HttpClient client)
+    public StorageService(IConfiguration config, IRequestInvoker client)
     {
         _client = client;
         _config = config;
