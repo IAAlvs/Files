@@ -9,7 +9,6 @@ public interface IFilesRepository
     Task<List<Chunk>> GetChunksByFileIdAsync(Guid fileId);
     Task<List<Chunk>> GetChunksOrderedByFileIdAsync(Guid fileId);
     Task<bool> UploadTemporalyChunk(UploadChunkRequestDto uploadRequestDto, bool publicChunk);
-
     string JoinChunks(List<Chunk> chunks);
     Task<string> JoinChunksByFileId(Guid fileId);
     void DeleteChunksByFileId(Guid fileId); 

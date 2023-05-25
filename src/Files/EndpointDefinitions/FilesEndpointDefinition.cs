@@ -125,6 +125,7 @@ public class FilesEndpointDefinition{
             (AggregateException) => Results.Conflict(exc.Message),
             //(DuplicateNameException) => Results.Conflict(exc.Message),
             (ApplicationException) => Results.Conflict(exc.Message),
+            (FormatException) => Results.Problem(exc.Message),
             _ => null
         };
     }

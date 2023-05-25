@@ -1,5 +1,6 @@
 using Files.Interfaces;
 using Files.Models;
+using System.Text.Json;
 namespace Files.Services;
 public class FilesService : IFiles
 {
@@ -23,25 +24,40 @@ public class FilesService : IFiles
     {
         //Check if file is not currently in db
         var fileInDb = await _repository.GetFileById(id);
+        var fileInStorage = await _storageService.CheckIfExistsItem(id.ToString());
         //Todo: log this
         if(fileInDb != null){
             throw new ArgumentException(@"Current file Id is not available to upload,
-             all chunks with fileId "+id+" have been deleted try with other id");
+             all chunks with fileId "+id+" try with another fileId");
         }
-        var chunksWithFileId = await _repository.GetChunksByFileIdAsync(id);
+        if(fileInStorage){
+            throw new ArgumentException(@"Current file Id is not available to upload,
+             all chunks with fileId "+id+" try with another fileId");
+        }
+        //Todo: We shoul validate if private of not, not only use first chunk
+        var chunksWithFileId = await _repository.GetChunksOrderedByFileIdAsync(id);
         var chunkWithData = chunksWithFileId.First();
         if(chunksWithFileId.Count == 0)
             return null;
         var fileString = _repository.JoinChunks(chunksWithFileId);
-        int sum = 0;
-        chunksWithFileId.Select(c => sum += c.Size);
+        var sum = 0;
+        chunksWithFileId.ForEach(c => sum += c.Size);
         if(fileString.Length != sum || fileString.Length != chunkWithData.FileSize)
             throw new FormatException("Sum of chunks saved is not the same that total size file parameter");
         //save file
         try{
-            var urlOfElement = await _storageService.UploadFile(id.ToString(), fileString);
-            var file = new Files.Models.File(id, DateTime.UtcNow, urlOfElement, chunkWithData.Type, chunkWithData.Filename, chunkWithData.FileSize);
-            return file.ToUploadFileResponseDto("File uploaded Successfully");
+            string? urlOfElement = null;
+            if(chunkWithData.PublicFile)
+                urlOfElement = await _storageService.UploadPublicFile(id.ToString(), fileString);
+            else{
+                await _storageService.UploadFile(id.ToString(), fileString);
+            }
+            var file = new Files.Models.File(id, DateTime.UtcNow, urlOfElement!, chunkWithData.Type, chunkWithData.Filename, chunkWithData.FileSize);
+            var fileSaved = _repository.AddFile(file);
+            if(fileSaved is not null)
+                _repository.DeleteChunksByFileId(id);
+            return file.ToUploadFileResponseDto("File uploaded successfully");
+
         }
         catch(Exception err)
         {

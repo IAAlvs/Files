@@ -1,10 +1,4 @@
-using System;
-using System.Data.Common;
-using System.Linq;
-using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
-using Xunit;
-using System.Text.Json;
 using Files.Repositories;
 using Files.Models;
 
@@ -104,7 +98,7 @@ public class FilesRepositoryTests
         string fileExpected = "chunk0chunk1chunk2";
         var _sut = new FilesRepository(_filesDb);
         var fileId = Guid.NewGuid();
-        InsertChunks(_sut, fileId, chunksToadd);
+        InsertChunks(_sut, fileId, chunksToadd, null);
 
         string fileBuilt = await _sut.JoinChunksByFileId(fileId);
 
@@ -116,21 +110,123 @@ public class FilesRepositoryTests
         int chunksToadd = 3;
         var _sut = new FilesRepository(_filesDb);
         var fileId = Guid.NewGuid();
-        InsertChunks(_sut, fileId, chunksToadd);
+        InsertChunks(_sut, fileId, chunksToadd, null);
 
         _sut.DeleteChunksByFileId(fileId);
         var elements = await _sut.GetChunksByFileIdAsync(fileId);
 
         Assert.Equal(0, elements.Count);
     }
-    private static void InsertChunks(FilesRepository repo, Guid fileId, int n)
+    
+    [Fact]
+    public async void With3ChunksAdded_GetChunksByFileId_ChunksToCount3()
     {
-        for (var i = 0; i < n; i++)
-        {
-            var data = $"chunk{i}";
-            var chunk = new Chunk(Guid.NewGuid(),fileId, i,100000,20000000, $"chunk{i}",
-            DateTime.UtcNow, false, "pdf", "filename");
-            Task.FromResult(repo.AddChunkAsync(chunk));
+        int chunksToadd = 3;
+        var _sut = new FilesRepository(_filesDb);
+        var fileId = Guid.NewGuid();
+        InsertChunks(_sut, fileId, chunksToadd, null);
+
+        var elements = await _sut.GetChunksByFileIdAsync(fileId);
+
+        Assert.Equal(chunksToadd, elements.Count);
+    }
+    [Fact]
+    public async void With3ChunksAdded_GetChunksOrderedByFileID_FirstNumber0LastNumber2()
+    {
+        int chunksToadd = 3;
+        var _sut = new FilesRepository(_filesDb);
+        var fileId = Guid.NewGuid();
+        InsertChunks(_sut, fileId, chunksToadd, null);
+
+        var elements = await _sut.GetChunksOrderedByFileIdAsync(fileId);
+
+        Assert.Equal(0, elements.First().Number);
+        Assert.Equal(2, elements.Last().Number);
+    }
+    [Fact]
+    public async void FromUploadChunkRequestDto_UploadTemporalyChunk_ChunkAdded()
+    {
+        var id = Guid.NewGuid();
+        var _sut = new FilesRepository(_filesDb);
+        var dto = new UploadChunkRequestDto(id, 0, "1234", 4, 40, "pdf", "filename");
+
+        var result = await _sut.UploadTemporalyChunk(dto, true);
+        //chunk added
+        Assert.True(result);
+    }
+    [Fact]
+    public async void AfterChunksUploaded_JoinChunksByFileId_FullyStringReturned()
+    {
+        var id = Guid.NewGuid();
+        var _sut = new FilesRepository(_filesDb);
+        //Expected to insert to chunks of size 5(10/2) with character n
+        InsertChunks(_sut, id, 2, 10);
+        var result = await _sut.JoinChunksByFileId(id);
+        //chunk added
+        Assert.Equal("nnnnnnnnnn", result);
+    }
+    [Fact]
+    public async void AddFile_SuccessAdition(){
+        var _sut = new FilesRepository(_filesDb);
+        var fileId = Guid.NewGuid();
+        var file = new Files.Models.File(fileId, DateTime.UtcNow, "nnnnnnnnnn", "pdf", "filetest",10);
+
+        var fileAdded = await _sut.AddFile(file);
+
+        Assert.Equal(fileId, fileAdded);
+    }
+    [Fact]
+    public async void AddingFile_FileAddedTwice_Exception(){
+        var _sut = new FilesRepository(_filesDb);
+        var fileId = Guid.NewGuid();
+        var file = new Files.Models.File(fileId, DateTime.UtcNow, "url", "pdf", "filetest",10);
+
+        var fileAdded = await _sut.AddFile(file);
+
+        await Assert.ThrowsAnyAsync<DbUpdateException>(async () => await _sut.AddFile(file));
+    }
+        [Fact]
+    public async void FileAdded_GetFileById_fileGotten(){
+        var _sut = new FilesRepository(_filesDb);
+        var fileId = Guid.NewGuid();
+        var uploadDate = DateTime.UtcNow;
+        var file = new Files.Models.File(fileId, uploadDate, "nnnnnnnnnn", "pdf", "filetest",10);
+
+        var fileAdded = await _sut.AddFile(file);
+        var fileGotten = await _sut.GetFileById(fileId);
+
+
+        Assert.Equal(fileId ,fileGotten!.Id);
+        Assert.Equal(uploadDate, fileGotten!.UploadDate);
+        Assert.Equal("nnnnnnnnnn", fileGotten!.Url);
+        Assert.Equal("pdf", fileGotten!.Type);
+        Assert.Equal("filetest", fileGotten!.Name);
+        Assert.Equal(10, fileGotten!.Size);
+    }
+
+    private static void InsertChunks(FilesRepository repo, Guid fileId, int n, int? size)
+    {
+        if(size != null)
+        {   
+            int mysize = (int)size;
+            for (var i = 0; i < n; i++)
+            {
+                char character = char.Parse("n");
+                var data = new string(character, mysize/n);
+                var chunk = new Chunk(Guid.NewGuid(),fileId,i, mysize/n,n, data,
+                DateTime.UtcNow, false, "pdf", "filename");
+                Task.FromResult(repo.AddChunkAsync(chunk));
+            }
+
+        }
+        else{
+            for (var i = 0; i < n; i++)
+            {
+                var data = $"chunk{i}";
+                var chunk = new Chunk(Guid.NewGuid(),fileId, i,100000,20000000, $"chunk{i}",
+                DateTime.UtcNow, false, "pdf", "filename");
+                Task.FromResult(repo.AddChunkAsync(chunk));
+            }
         }
     }
 

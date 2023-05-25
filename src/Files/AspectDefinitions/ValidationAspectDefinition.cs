@@ -6,6 +6,7 @@ namespace Files.AspectDefinitions;
 
 public class ValidationAspectDefinition
 {
+    [Obsolete]
     public static void DefineAspect(IServiceCollection services, IConfiguration configuration)
     {
         services.AddFluentValidation(fv =>

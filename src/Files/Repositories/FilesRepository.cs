@@ -32,6 +32,7 @@ public class FilesRepository : IFilesRepository
     {
         string fullyFile = "";
         chunks.ForEach(chunk => fullyFile += chunk.Data);
+        //Console.WriteLine(fullyFile);
         return fullyFile;
     }
     public async Task<string> JoinChunksByFileId(Guid fileId)
