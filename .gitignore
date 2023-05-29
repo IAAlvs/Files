@@ -149,3 +149,5 @@ ipch/
 #Other files
 BenchmarkDotNet.Artifacts/
 StyleCopReport.xml
+#Env
+*.env
