@@ -1,7 +1,7 @@
 using Files.Models;
 public class Chunk
 {
-    public Chunk(Guid id, Guid fileId, int number, int size, int fileSize, string data, DateTime uploadDate, bool publicFile, string type, string filename)
+    public Chunk(Guid id, Guid fileId, int number, int size, int fileSize, string data, DateTime uploadDate, string type, string filename)
     {
         Id = id;
         FileId = fileId;
@@ -10,7 +10,6 @@ public class Chunk
         FileSize = fileSize;
         Data = data;
         UploadDate = uploadDate;
-        PublicFile = publicFile;
         Type = type;
         Filename = filename;
     }
@@ -27,7 +26,7 @@ public class Chunk
     public string Filename { get; set;}
 
 
-    public static Chunk CreateFromDto(UploadChunkRequestDto dto, bool publicFile){
-        return new Chunk(Guid.NewGuid(), dto.FileId, dto.Number, dto.Size, dto.FileSize, dto.Data, DateTime.UtcNow, publicFile, dto.Type, dto.FileName);
+    public static Chunk CreateFromDto(UploadChunkRequestDto dto){
+        return new Chunk(Guid.NewGuid(), dto.FileId, dto.Number, dto.Size, dto.FileSize, dto.Data, DateTime.UtcNow, dto.Type, dto.FileName);
     }
 }

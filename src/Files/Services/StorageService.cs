@@ -70,7 +70,7 @@ public class StorageService : IStorageService
         };
         var existFile = await CheckIfExistsItem(id);
         if(!existFile)
-            throw new ArgumentException("File does not exist for file id: {id}");
+            throw new ArgumentException($"File does not exist for file id: {id}");
         var response = await _awsClient.GetObjectAsync(request);
         var memoryStream = new MemoryStream();
         await response.ResponseStream.CopyToAsync(memoryStream);

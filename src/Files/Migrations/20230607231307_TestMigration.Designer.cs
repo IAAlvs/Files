@@ -12,8 +12,8 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Files.Migrations
 {
     [DbContext(typeof(FilesDbContext))]
-    [Migration("20230417003600_1st-migration")]
-    partial class _1stmigration
+    [Migration("20230607231307_TestMigration")]
+    partial class TestMigration
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)

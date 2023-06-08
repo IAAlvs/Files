@@ -19,7 +19,6 @@ public class FilesEndpointDefinition{
         var config = new ConfigurationBuilder().AddJsonFile("appsettings.json").AddEnvironmentVariables().Build();
         var filesOptionsBuilder = new DbContextOptionsBuilder<FilesDbContext>();
         filesOptionsBuilder.UseNpgsql(config["DB_CONNECTION"]);
-
         services.AddDatabaseDeveloperPageExceptionFilter();
         //services.AddSingleton<ILogger>
         services.AddDbContext<FilesDbContext>(options => options.UseNpgsql(config["DB_CONNECTION"]));
@@ -29,16 +28,16 @@ public class FilesEndpointDefinition{
         services.AddScoped<IFiles, FilesService>();
         //services.addHttpClient();
     }
-    public static void DefineEndpoints(WebApplication app)
+    public static void DefineEndpoints(IEndpointRouteBuilder app)
     {
         //Build an file with previous chunks
         app.MapPost("/api/"+ API_VERSION+"/files/upload/{fileId}", UploadFile)  
-            .WithName("Build and Upload File");
-        // Upload a public chunks
-        app.MapPost("/api/"+ API_VERSION+"/files/chunks", UploadPublicChunck)  
-            .WithName("Upload Public chunk");
+            .WithName("Build and Upload like private File");
+        // Upload a public file
+        app.MapPost("/api/"+ API_VERSION+"/files/upload-public/{fileId}", UploadPublicFile)  
+        .WithName("Build and Upload File");
 
-        app.MapPost("/api/"+ API_VERSION+"/files/chunks-private", UploadChunck)  
+        app.MapPost("/api/"+ API_VERSION+"/files/chunks", UploadChunks)  
             .WithName("Upload Private chunk");
 
         app.MapGet("/api/"+ API_VERSION+"/files/{fileId}", GetFileById)  
@@ -61,14 +60,14 @@ public class FilesEndpointDefinition{
             return error;
         }  
     }
-    internal async static Task<IResult> UploadPublicChunck(IFiles service,
-        UploadChunkRequestDto uploadChunkDto)
+    internal async static Task<IResult> UploadPublicFile(IFiles service,
+    [FromRoute(Name = "fileId")] Guid fileId)
     {
         try
         {
-            return await service.UploadPublicChunck(uploadChunkDto)
-                is { } uploadChunkResponseDto
-                ? Results.Ok(uploadChunkResponseDto)
+            return await service.UploadPublicFile(fileId)
+                is { } uploadFilesResponseDto
+                ? Results.Ok(uploadFilesResponseDto)
                 : Results.NotFound();
         }
         catch (Exception e)
@@ -78,18 +77,19 @@ public class FilesEndpointDefinition{
             return error;
         }  
     }
-    internal async static Task<IResult> UploadChunck(IFiles service,
+    internal async static Task<IResult> UploadChunks(IFiles service,
         UploadChunkRequestDto uploadChunkDto)
     {
         try
         {
-            return await service.UploadPrivateChunck(uploadChunkDto)
-                is { } uploadChunkResponseDto
+            var response = await service.UploadChunks(uploadChunkDto);
+            return response is {} uploadChunkResponseDto
                 ? Results.Ok(uploadChunkResponseDto)
                 : Results.NotFound();
         }
         catch (Exception e)
         {
+            Console.WriteLine(e);
             var error = PrettifyErrorResult(e);
             if (error is null) throw;
             return error;
@@ -125,7 +125,7 @@ public class FilesEndpointDefinition{
             (AggregateException) => Results.Conflict(exc.Message),
             //(DuplicateNameException) => Results.Conflict(exc.Message),
             (ApplicationException) => Results.Conflict(exc.Message),
-            (FormatException) => Results.Problem(exc.Message),
+            (FormatException) => Results.Conflict(exc.Message),
             _ => null
         };
     }

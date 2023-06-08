@@ -134,7 +134,6 @@ public class StorageServiceTests
     public async void WithFile_UploadPublicFile_ReturnsFileId()
     {
         // Given
-        string itemName = "fileName";
         string fileId = Guid.NewGuid().ToString();
         string fileB64 = "SGVsbG8gV29ybGQh";
         var awsClient = Substitute.For<IAmazonS3>();

@@ -46,19 +46,21 @@ public class FilesRepository : IFilesRepository
         return fullyFile;
     }
 
-    public async Task<bool> UploadTemporalyChunk(UploadChunkRequestDto uploadRequestDto, bool publicChunk)
+    public async Task<bool> UploadTemporalyChunk(UploadChunkRequestDto uploadRequestDto)
     {   
-        var chunckElement= Chunk.CreateFromDto(uploadRequestDto, publicChunk);
+        var chunckElement= Chunk.CreateFromDto(uploadRequestDto);
         try
         {
-            _dbContext.Chunks.Add(chunckElement);
+            _dbContext.Chunks.AddAsync(chunckElement);
             await _dbContext.SaveChangesAsync();
             return true;
         }
         catch (System.Exception e)
         {
-            Console.WriteLine(e);
-            return false;
+            Console.WriteLine("=================");
+            Console.WriteLine(e.InnerException);
+            Console.WriteLine("=================");
+            throw new ArgumentException($"Error with chunk for fileId {uploadRequestDto.FileId}, error {e.Message}");
         }
     }
 

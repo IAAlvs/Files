@@ -19,7 +19,7 @@ public class FilesRepositoryTests
     public async void WithNewChunk_AddAsync_AddsNewChunk()
     {
         var chunk = new Chunk(Guid.NewGuid(), Guid.NewGuid(), 0,100000,20000000, "123456789data",
-         DateTime.UtcNow, false, "pdf", "filename");
+         DateTime.UtcNow, "pdf", "filename");
         var countBefore = _filesDb.Chunks.Count();
 
         var _sut = new FilesRepository(_filesDb);
@@ -32,9 +32,9 @@ public class FilesRepositoryTests
     {
         var idRepeated = Guid.NewGuid();
         var chunk = new Chunk(idRepeated, Guid.NewGuid(), 0,100000,20000000, "123456789data",
-         DateTime.UtcNow, false, "pdf", "filename");
+         DateTime.UtcNow, "pdf", "filename");
         var chunk2 = new Chunk(idRepeated, Guid.NewGuid(), 1,100000,20000000, "123456789data",
-         DateTime.UtcNow, false, "pdf", "filename");
+         DateTime.UtcNow, "pdf", "filename");
 
         var countBefore = _filesDb.Chunks.Count();
 
@@ -51,9 +51,9 @@ public class FilesRepositoryTests
     {
         var fileId = Guid.NewGuid();
         var chunk = new Chunk(Guid.NewGuid(), fileId, 1,100000,20000000, "123456789data",
-         DateTime.UtcNow, false, "pdf", "filename");
+         DateTime.UtcNow, "pdf", "filename");
         var chunk2 = new Chunk(Guid.NewGuid(), fileId, 1,100000,20000000, "123456789data",
-         DateTime.UtcNow, false, "pdf", "filename");
+         DateTime.UtcNow, "pdf", "filename");
 
         var countBefore = _filesDb.Chunks.Count();
 
@@ -83,7 +83,7 @@ public class FilesRepositoryTests
         {
             var chunk = new UploadChunkRequestDto(fileId, i, $"chunk{i}", 100, 1000, "pdf", "filename");
 
-           await _sut.UploadTemporalyChunk(chunk, false);
+           await _sut.UploadTemporalyChunk(chunk);
             
         }
         var totalChunk = await _sut.GetChunksOrderedByFileIdAsync(fileId);
@@ -150,7 +150,7 @@ public class FilesRepositoryTests
         var _sut = new FilesRepository(_filesDb);
         var dto = new UploadChunkRequestDto(id, 0, "1234", 4, 40, "pdf", "filename");
 
-        var result = await _sut.UploadTemporalyChunk(dto, true);
+        var result = await _sut.UploadTemporalyChunk(dto);
         //chunk added
         Assert.True(result);
     }
@@ -214,7 +214,7 @@ public class FilesRepositoryTests
                 char character = char.Parse("n");
                 var data = new string(character, mysize/n);
                 var chunk = new Chunk(Guid.NewGuid(),fileId,i, mysize/n,n, data,
-                DateTime.UtcNow, false, "pdf", "filename");
+                DateTime.UtcNow, "pdf", "filename");
                 Task.FromResult(repo.AddChunkAsync(chunk));
             }
 
@@ -224,7 +224,7 @@ public class FilesRepositoryTests
             {
                 var data = $"chunk{i}";
                 var chunk = new Chunk(Guid.NewGuid(),fileId, i,100000,20000000, $"chunk{i}",
-                DateTime.UtcNow, false, "pdf", "filename");
+                DateTime.UtcNow, "pdf", "filename");
                 Task.FromResult(repo.AddChunkAsync(chunk));
             }
         }
