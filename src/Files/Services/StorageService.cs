@@ -40,12 +40,6 @@ public class StorageService : IStorageService
 
     public async Task<bool> CheckIfExistsItem(string key)
     {
-        Console.WriteLine("=====================");
-        Console.WriteLine(SecretKey);
-        Console.WriteLine(AccessKey);
-                Console.WriteLine("=====================");
-
-
         var request = new GetObjectMetadataRequest
         {
             BucketName = BucketName,
