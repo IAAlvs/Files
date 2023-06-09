@@ -43,6 +43,7 @@ public class FilesEndpointDefinition{
         app.MapGet("/api/"+ API_VERSION+"/files/{fileId}", GetFileById)  
             .WithName("Get file by id");
     }
+    [Authorize(Policy = "FilesPolicy")]
     internal async static Task<IResult> UploadFile(IFiles service,
         [FromRoute(Name = "fileId")] Guid fileId)
     {
@@ -60,6 +61,7 @@ public class FilesEndpointDefinition{
             return error;
         }  
     }
+    [Authorize(Policy = "FilesPolicy")]
     internal async static Task<IResult> UploadPublicFile(IFiles service,
     [FromRoute(Name = "fileId")] Guid fileId)
     {
@@ -77,6 +79,7 @@ public class FilesEndpointDefinition{
             return error;
         }  
     }
+    [Authorize(Policy = "FilesPolicy")]
     internal async static Task<IResult> UploadChunks(IFiles service,
         UploadChunkRequestDto uploadChunkDto)
     {
@@ -95,6 +98,7 @@ public class FilesEndpointDefinition{
             return error;
         }  
     }
+    [Authorize(Policy = "FilesPolicy")]
     internal async static Task<IResult> GetFileById(IFiles service,
     [FromRoute(Name = "fileId")] Guid fileId)
     {
@@ -112,7 +116,6 @@ public class FilesEndpointDefinition{
             return error;
         }  
     }
-
     private static IResult? PrettifyErrorResult(Exception exc)
     {
         return exc switch
