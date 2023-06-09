@@ -14,6 +14,7 @@ using Files.Services;
 using Files.Models;
 using Files.Clients;
 using Files.AspectDefinitions;
+using Microsoft.AspNetCore.Authorization;
 using NSubstitute;
 
 public class FilesApiTests
@@ -29,6 +30,14 @@ public class FilesApiTests
                 var filesOptionsBuilder = new DbContextOptionsBuilder<FilesDbContext>();
                 filesOptionsBuilder.UseSqlite("DataSource=file::memory:?cache=shared");
                 services.AddSingleton<IConfiguration>(config);
+                //Policy is required
+                services.AddAuthorization(options =>
+                {
+                    options.AddPolicy("FilesPolicy", policy =>
+                    {
+                        policy.RequireAssertion(context => true);
+                    });
+                });
                 var mockStorage = Substitute.For<IStorageService>();
                 //MOCKING ITEMS STORAGE SERVICE
                     //Returnt for every call 

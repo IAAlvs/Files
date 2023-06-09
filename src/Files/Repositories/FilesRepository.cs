@@ -51,7 +51,7 @@ public class FilesRepository : IFilesRepository
         var chunckElement= Chunk.CreateFromDto(uploadRequestDto);
         try
         {
-            _dbContext.Chunks.AddAsync(chunckElement);
+            await _dbContext.Chunks.AddAsync(chunckElement);
             await _dbContext.SaveChangesAsync();
             return true;
         }

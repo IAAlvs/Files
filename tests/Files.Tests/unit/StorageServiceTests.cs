@@ -15,7 +15,7 @@ public class StorageServiceTests
 
     public StorageServiceTests()
     {
-        _config = new ConfigurationBuilder().AddJsonFile("appsettings.Development.json").AddEnvironmentVariables().Build();
+        _config = new ConfigurationBuilder().AddJsonFile("appsettings.Development.json").Build();
         _service = new StorageService(_config);
         
     }
