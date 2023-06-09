@@ -1,4 +1,5 @@
 using Files.AspectDefinitions;
+using Files.AspectDefinitions.Authorization;
 using Serilog;
 
 Log.Logger = new LoggerConfiguration()
@@ -12,7 +13,7 @@ try
 
     // Add services to the container.
     CorsAspectDefinition.DefineAspect(builder.Services, builder.Configuration);
-    //AuthorizationAspectDefinition.DefineAspect(builder.Services, builder.Configuration);
+    AuthorizationAspectDefinition.DefineAspect(builder.Services, builder.Configuration);
     ValidationAspectDefinition.DefineAspect(builder.Services, builder.Configuration);
     SerilogAspectDefinition.DefineAspect(builder);
     SwaggerEndpointDefinition.DefineServices(builder.Services);
@@ -22,7 +23,7 @@ try
 
     // Configure the HTTP request pipeline.
     CorsAspectDefinition.ConfigureAspect(app);
-    //AuthorizationAspectDefinition.ConfigureAspect(app);
+    AuthorizationAspectDefinition.ConfigureAspect(app);
     SerilogAspectDefinition.ConfigureAspect(app);
     SwaggerEndpointDefinition.DefineEndpoints(app);
     FilesEndpointDefinition.DefineEndpoints(app);
