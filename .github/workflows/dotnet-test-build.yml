@@ -54,7 +54,7 @@ jobs:
         if: ${{ github.ref == 'refs/heads/main' && github.event_name == 'push' }}
         uses: jwalton/gh-ecr-push@v1
         env:
-          REGISTRY: 232187837350.dkr.ecr.us-east-1.amazonaws.com/softiadata
+          REGISTRY: 232187837350.dkr.ecr.us-east-1.amazonaws.com
           IMAGE: files
           SHA: ${{ steps.short-sha.outputs.sha }}
           REF: ${{ github.ref }}
