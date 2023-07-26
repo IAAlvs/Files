@@ -8,6 +8,8 @@ using Files.Repositories;
 using Files.Services;
 using Files.Models;
 using Files.Clients;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 namespace Files.AspectDefinitions;
 
 public class FilesEndpointDefinition{
@@ -20,17 +22,15 @@ public class FilesEndpointDefinition{
         var filesOptionsBuilder = new DbContextOptionsBuilder<FilesDbContext>();
         filesOptionsBuilder.UseNpgsql(config["DB_CONNECTION"]);
         services.AddDatabaseDeveloperPageExceptionFilter();
-        //services.AddSingleton<ILogger>
         services.AddDbContext<FilesDbContext>(options => options.UseNpgsql(config["DB_CONNECTION"]));
         services.AddScoped<IFilesRepository, FilesRepository>();
         services.AddScoped<IRequestInvoker, RequestInvoker>();
         services.AddScoped<IStorageService, StorageService>();
         services.AddScoped<IFiles, FilesService>();
-        //services.addHttpClient();
     }
     public static void DefineEndpoints(IEndpointRouteBuilder app)
     {
-        //Build an file with previous chunks
+         //Build an file with previous chunks
         app.MapPost("/api/"+ API_VERSION+"/files/upload/{fileId}", UploadFile)  
             .WithName("Build and Upload like private File");
         // Upload a public file
@@ -38,18 +38,22 @@ public class FilesEndpointDefinition{
         .WithName("Build and Upload File");
 
         app.MapPost("/api/"+ API_VERSION+"/files/chunks", UploadChunks)  
-            .WithName("Upload Private chunk");
+            .WithName("Upload FileChunks");
 
         app.MapGet("/api/"+ API_VERSION+"/files/{fileId}", GetFileById)  
             .WithName("Get file by id");
     }
     [Authorize(Policy = "FilesPolicy")]
-    internal async static Task<IResult> UploadFile(IFiles service,
-        [FromRoute(Name = "fileId")] Guid fileId)
+    internal async static Task<IResult> UploadFile(IFiles service, IValidator<string> _validator,
+        [FromRoute(Name = "fileId")] string fileId)
     {
         try
         {
-            return await service.UploadFile(fileId)
+            var validation = _validator.Validate(fileId);
+            if(!validation.IsValid){
+                throw new ValidationException(validation.Errors);
+            }
+            return await service.UploadFile(Guid.Parse(fileId))
                 is { } uploadFilesResponseDto
                 ? Results.Ok(uploadFilesResponseDto)
                 : Results.NotFound();
@@ -62,12 +66,17 @@ public class FilesEndpointDefinition{
         }  
     }
     [Authorize(Policy = "FilesPolicy")]
-    internal async static Task<IResult> UploadPublicFile(IFiles service,
-    [FromRoute(Name = "fileId")] Guid fileId)
+    internal async static Task<IResult> UploadPublicFile(IFiles service, IValidator<string> _validator,
+    [FromRoute(Name = "fileId")] string fileId)
     {
         try
         {
-            return await service.UploadPublicFile(fileId)
+            
+            var validation = _validator.Validate(fileId);
+            if(!validation.IsValid){
+                throw new ValidationException(validation.Errors);
+            }
+            return await service.UploadPublicFile(Guid.Parse(fileId))
                 is { } uploadFilesResponseDto
                 ? Results.Ok(uploadFilesResponseDto)
                 : Results.NotFound();
@@ -80,31 +89,41 @@ public class FilesEndpointDefinition{
         }  
     }
     [Authorize(Policy = "FilesPolicy")]
-    internal async static Task<IResult> UploadChunks(IFiles service,
-        UploadChunkRequestDto uploadChunkDto)
+    internal async static Task<IResult> UploadChunks(IFiles service, IValidator<UploadChunkRequestDto> _validator,
+    JsonNode body)
     {
         try
         {
-            var response = await service.UploadChunks(uploadChunkDto);
+            var uploadChunkDto = body.Deserialize<UploadChunkRequestDto>(options:new JsonSerializerOptions{
+                PropertyNameCaseInsensitive = true
+            });
+            var validation = _validator.Validate(uploadChunkDto!);
+            if(!validation.IsValid){
+                throw new ValidationException(validation.Errors);
+            }
+            var response = await service.UploadChunks(uploadChunkDto!);
             return response is {} uploadChunkResponseDto
                 ? Results.Ok(uploadChunkResponseDto)
                 : Results.NotFound();
         }
         catch (Exception e)
         {
-            Console.WriteLine(e);
             var error = PrettifyErrorResult(e);
             if (error is null) throw;
             return error;
         }  
     }
     [Authorize(Policy = "FilesPolicy")]
-    internal async static Task<IResult> GetFileById(IFiles service,
-    [FromRoute(Name = "fileId")] Guid fileId)
+    internal async static Task<IResult> GetFileById(IFiles service, IValidator<string> _validator,
+    [FromRoute(Name = "fileId")] string fileId)
     {
         try
         {
-            return await service.GetFileById(fileId)
+            var validation = _validator.Validate(fileId);
+            if(!validation.IsValid){
+                throw new ValidationException(validation.Errors);
+            }
+            return await service.GetFileById(Guid.Parse(fileId))
                 is { } GetFileSummaryDto
                 ? Results.Ok(GetFileSummaryDto)
                 : Results.NotFound();
@@ -116,20 +135,20 @@ public class FilesEndpointDefinition{
             return error;
         }  
     }
-    private static IResult? PrettifyErrorResult(Exception exc)
+    private static ErrorResponseDto BuildErrorResponseDto(string errorMessage)
     {
-        return exc switch
-        {
-            (ValidationException ex) => Results.UnprocessableEntity(
-                new {errors = ex.Errors.Select(x => x.ErrorMessage)}),
-            (InvalidOperationException) => Results.Conflict(exc.Message),
-            (ArgumentException) => Results.UnprocessableEntity(exc.Message),
-            (KeyNotFoundException) => Results.NotFound(exc.Message),
-            (AggregateException) => Results.Conflict(exc.Message),
-            //(DuplicateNameException) => Results.Conflict(exc.Message),
-            (ApplicationException) => Results.Conflict(exc.Message),
-            (FormatException) => Results.Conflict(exc.Message),
-            _ => null
-        };
-    }
+        return new ErrorResponseDto(new List<string> { errorMessage });
+    }   
+    private static IResult? PrettifyErrorResult(Exception exc) => exc switch
+    {
+        ValidationException ex => Results.UnprocessableEntity(new { errors = ex.Errors.Select(x => $"{x.PropertyName} {x.ErrorMessage}") }),
+        InvalidOperationException => Results.Conflict(BuildErrorResponseDto(exc.Message)),
+        ArgumentException => Results.UnprocessableEntity(BuildErrorResponseDto(exc.Message)),
+        KeyNotFoundException => Results.NotFound(BuildErrorResponseDto(exc.Message)),
+        AggregateException => Results.Conflict(BuildErrorResponseDto(exc.Message)),
+        ApplicationException => Results.Conflict(BuildErrorResponseDto(exc.Message)),
+        FormatException => Results.Conflict(BuildErrorResponseDto(exc.Message)),
+        JsonException => Results.BadRequest(BuildErrorResponseDto("Failed Json Parse. Invalid input pattern")),
+        _ => null
+    };
 }

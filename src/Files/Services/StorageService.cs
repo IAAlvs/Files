@@ -8,12 +8,13 @@ public class StorageService : IStorageService
     //private readonly IRequestInvoker _client;
     private readonly IConfiguration _config;
     private readonly IAmazonS3 _awsClient;
+    private readonly ILogger _logger;
     public string UrlDomain { get; }
     public string AccessKey { get; }
     public string SecretKey { get; }
     public string BucketName { get; }
     public string BucketRegion { get; }
-    public StorageService(IConfiguration config)
+    public StorageService(IConfiguration config, ILogger<IStorageService> logger)
     {
         _config = config;
         UrlDomain = _config["URL_DOMAIN"]!;
@@ -23,9 +24,10 @@ public class StorageService : IStorageService
         BucketRegion = _config["AWS_BUCKET_REGION"]!;
         var regionAsRegion = RegionEndpoint.GetBySystemName(BucketRegion);
         _awsClient = new AmazonS3Client(AccessKey, SecretKey, regionAsRegion);
+        _logger = logger;
     }
     //Just for testing purpose
-    public StorageService(IConfiguration config, IAmazonS3 awsClient)
+    public StorageService(IConfiguration config, IAmazonS3 awsClient, ILogger logger)
     {
         _config = config;
         UrlDomain = _config["URL_DOMAIN"]!;
@@ -33,11 +35,10 @@ public class StorageService : IStorageService
         SecretKey = _config["AWS_SECRET_KEY"]!;
         BucketName = _config["AWS_BUCKET_NAME"]!;
         BucketRegion = _config["AWS_BUCKET_REGION"]!;
-        _awsClient = awsClient;
-        
+        _awsClient = awsClient;        
+        _logger = logger;
+
     }
-
-
     public async Task<bool> CheckIfExistsItem(string key)
     {
         var request = new GetObjectMetadataRequest
@@ -80,9 +81,9 @@ public class StorageService : IStorageService
 
     public async Task<bool> UploadFile(string fileId, string base64String)
     {
-        // Convertir el base64 string en un array de bytes
+        // Convert base64 to bytes
         byte[] bytes = Convert.FromBase64String(base64String);
-        // Crear una solicitud de subida de archivo
+        // Create upload request
         var putRequest = new PutObjectRequest
         {
             BucketName = BucketName,
@@ -91,15 +92,13 @@ public class StorageService : IStorageService
         };
         try{
             var response = await _awsClient.PutObjectAsync(putRequest);
+            
             return true;
-
         }
         catch(Exception e){
+            LogError(e);
             throw new ArgumentException($"Failed to upload to cloud service {e.Message?? "message :" + e.Message }");
-
         }
-        // Ejecutar la subida de archivo
-
     }
     public async Task<string> UploadPublicFile(string fileId, string base64String)
     {
@@ -125,9 +124,19 @@ public class StorageService : IStorageService
             return $"https://{BucketName}.s3.amazonaws.com/{fileId}";
         }
         catch(Exception e){
+            LogError(e);
             throw new ArgumentException($"Failed to upload to cloud service {e.Message?? "message :" + e.Message }");
-
         }
+    }
+    private void LogError(Exception error)
+    {
+        string errorMessage = $"Error: {error.GetType().Name}\nMessage: {error.Message}\nStack Trace:\n{error.StackTrace}";
+        if (error.InnerException != null)
+        {
+            errorMessage += $"\nInner Exception:\n{error.InnerException.GetType().Name}\nInner Message: {error.InnerException.Message}\nInner Stack Trace:\n{error.InnerException.StackTrace}";
+        }
+        _logger.LogError(errorMessage);
+
     }
 
 }
