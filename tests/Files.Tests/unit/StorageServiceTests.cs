@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using Files.Interfaces;
 using Files.Services;
 using NSubstitute;
@@ -12,11 +13,13 @@ public class StorageServiceTests
 {
     private readonly IStorageService _service;
     private readonly IConfiguration _config;
+    private readonly ILogger<IStorageService> _logger;
 
     public StorageServiceTests()
     {
         _config = new ConfigurationBuilder().AddJsonFile("appsettings.Development.json").Build();
-        _service = new StorageService(_config);
+        _logger = Substitute.For<ILogger<IStorageService>>();
+        _service = new StorageService(_config, _logger);
         
     }
     [Fact]
@@ -29,7 +32,7 @@ public class StorageServiceTests
         var expectedBucketName = "fake_aws_bucket_name";
         var expectedBucketRegion = "us-west-1"; //Just for tests purpose
         // When
-        var service = new StorageService(_config);
+        var service = new StorageService(_config, _logger);
         // Then
         Assert.Equal(expectedUrlDomain, service.UrlDomain);
         Assert.Equal(expectedAccessKey, service.AccessKey);
@@ -53,7 +56,7 @@ public class StorageServiceTests
                 RequestId = "1234567890"
             };}
         );
-        var service = new StorageService(_config, awsClient);
+        var service = new StorageService(_config, awsClient, _logger);
         // When
         var response = await service.CheckIfExistsItem(itemName);
         // Then
@@ -67,7 +70,7 @@ public class StorageServiceTests
         var awsClient = Substitute.For<IAmazonS3>();
         awsClient.GetObjectMetadataAsync(Arg.Is<GetObjectMetadataRequest>(v => v.Key == itemName)).
         Returns(new GetObjectMetadataResponse());
-        var service = new StorageService(_config, awsClient);
+        var service = new StorageService(_config, awsClient, _logger);
         // When
         var response = await service.CheckIfExistsItem(itemName);
         // Then
@@ -90,7 +93,7 @@ public class StorageServiceTests
                 HttpStatusCode = System.Net.HttpStatusCode.OK,
             }
         );
-        var service = new StorageService(_config, clientMoq);
+        var service = new StorageService(_config, clientMoq, _logger);
         // When
         var response = await service.GetFileById(itemName);
         // Then
@@ -122,7 +125,7 @@ public class StorageServiceTests
                 RequestId = "1234567890"
             };}
         );
-        var service = new StorageService(_config, clientMoq);
+        var service = new StorageService(_config, clientMoq, _logger);
         // Action is throwed       
         // Then
         await Assert.ThrowsAnyAsync<ArgumentException>(
@@ -145,7 +148,7 @@ public class StorageServiceTests
         awsClient.PutACLAsync(Arg.Is<PutACLRequest>(k => k.Key == fileId)).Returns(
             new PutACLResponse { HttpStatusCode = System.Net.HttpStatusCode.OK }
         );
-        var service = new StorageService(_config, awsClient);
+        var service = new StorageService(_config, awsClient, _logger);
         // When
         var response = await service.UploadPublicFile(fileId, fileB64);
         // Then

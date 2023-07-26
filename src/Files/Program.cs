@@ -1,13 +1,9 @@
 using Files.AspectDefinitions;
 using Files.AspectDefinitions.Authorization;
 using Serilog;
+using Serilog.Formatting.Compact;
 
-Log.Logger = new LoggerConfiguration()
-    .WriteTo.Console()
-    .CreateLogger();
-
-Log.Information("Starting up");
-try
+internal class Program
 {
     var builder = WebApplication.CreateBuilder(args);
 
@@ -43,4 +39,3 @@ finally
     Log.Information("Shut down complete");
     Log.CloseAndFlush();
 }
-
