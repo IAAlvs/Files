@@ -153,4 +153,5 @@ StyleCopReport.xml
 *.env
 
 #vs code
+.vscode/*
 .vscode

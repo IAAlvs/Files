@@ -1,18 +1,22 @@
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using FluentValidation;
-using Files.Interfaces;
 using FluentValidation.AspNetCore;
+using System.Reflection;
+
 
 namespace Files.AspectDefinitions;
 
 public class ValidationAspectDefinition
 {
-    [Obsolete]
     public static void DefineAspect(IServiceCollection services, IConfiguration configuration)
     {
-        services.AddFluentValidation(fv =>
+        services.AddControllers().AddFluentValidation(cfg =>
         {
-            fv.RegisterValidatorsFromAssemblyContaining<IFilesApiAssemblyMarker>();
-            fv.DisableDataAnnotationsValidation = true;
+            cfg.RegisterValidatorsFromAssembly(Assembly.GetExecutingAssembly());
         });
     }
 

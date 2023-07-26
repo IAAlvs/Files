@@ -8,6 +8,7 @@ public class SerilogAspectDefinition
         builder.Host.UseSerilog((ctx, lc) => lc
             .WriteTo.Console()
             .ReadFrom.Configuration(ctx.Configuration));
+
     }
 
     public static void ConfigureAspect(WebApplication app)
