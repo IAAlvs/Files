@@ -55,9 +55,11 @@ public class StorageService : IStorageService
         catch (AmazonS3Exception ex)
         {
             if (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
-                return false; // file does not exist
-            else
-                throw; // Has been any error
+                return false; 
+            else{
+                LogError(ex);
+                throw new ArgumentException($"Failed to retrieve metadata about posible existence file with id : {key}");
+            }
         }
     }
 
@@ -97,7 +99,7 @@ public class StorageService : IStorageService
         }
         catch(Exception e){
             LogError(e);
-            throw new ArgumentException($"Failed to upload to cloud service {e.Message?? "message :" + e.Message }");
+            throw new ArgumentException($"Failed to upload in cloud service");
         }
     }
     public async Task<string> UploadPublicFile(string fileId, string base64String)
@@ -125,7 +127,7 @@ public class StorageService : IStorageService
         }
         catch(Exception e){
             LogError(e);
-            throw new ArgumentException($"Failed to upload to cloud service {e.Message?? "message :" + e.Message }");
+            throw new ArgumentException($"Failed to upload in cloud service");
         }
     }
     private void LogError(Exception error)
