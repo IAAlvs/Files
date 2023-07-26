@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace Files.Migrations
 {
     /// <inheritdoc />
-    public partial class TestMigration : Migration
+    public partial class InitialCreationFilesAndChunks : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
