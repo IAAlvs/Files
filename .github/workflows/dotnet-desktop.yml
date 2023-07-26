@@ -48,7 +48,7 @@ jobs:
           length: 7
 
       - name: Build non-master
-        run: docker build --tag Files:${{ steps.short-sha.outputs.sha }} .
+        run: docker build --tag files:${{ steps.short-sha.outputs.sha }} .
 
       - name: Build master
         if: ${{ github.ref == 'refs/heads/master' && github.event_name == 'push' }}
