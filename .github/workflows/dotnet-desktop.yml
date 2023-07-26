@@ -50,15 +50,15 @@ jobs:
       - name: Build non-master
         run: docker build --tag files:${{ steps.short-sha.outputs.sha }} .
 
-      - name: Build master
-        if: ${{ github.ref == 'refs/heads/master' && github.event_name == 'push' }}
+      - name: Build main
+        if: ${{ github.ref == 'refs/heads/main' && github.event_name == 'push' }}
         uses: jwalton/gh-ecr-push@v1
         env:
           REGISTRY: 232187837350.dkr.ecr.us-east-1.amazonaws.com/softiadata
           IMAGE: files
           SHA: ${{ steps.short-sha.outputs.sha }}
           REF: ${{ github.ref }}
-          ISMASTER: ${{ github.ref == 'master' }}
+          ISMASTER: ${{ github.ref == 'main' }}
         with:
           access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
