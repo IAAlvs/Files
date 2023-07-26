@@ -7,11 +7,16 @@ public class FilesRepository : IFilesRepository
 {
     private readonly FilesDbContext _dbContext;
     public FilesRepository(FilesDbContext dbContext) => _dbContext = dbContext;
-    public async Task<int> CountAsync() => await _dbContext.Chunks.CountAsync();
     public async Task<List<Chunk>> GetChunksByFileIdAsync(Guid fileId) => 
     await _dbContext.Chunks.Where(c => c.FileId == fileId).ToListAsync();
-    public async Task<List<Chunk>> GetChunksOrderedByFileIdAsync(Guid fileId) => 
-    await _dbContext.Chunks.Where(c => c.FileId == fileId).OrderBy(c => c.Number).ToListAsync();
+    public async Task<List<Chunk>> GetChunksOrderedByFileIdAsync(Guid fileId){
+        var chunks = _dbContext.Chunks.Where(c => c.FileId == fileId);
+        if(chunks.Count() == 0){
+            throw new KeyNotFoundException($"Not chunks available for fileId : {fileId}");
+        }
+        return await chunks.OrderBy(c => c.Number).ToListAsync();
+    }
+    
 
 
     public async Task<Chunk> AddChunkAsync(Chunk chunk)
@@ -57,9 +62,9 @@ public class FilesRepository : IFilesRepository
         }
         catch (System.Exception e)
         {
-            Console.WriteLine("=================");
+/*             Console.WriteLine("=================");
             Console.WriteLine(e.InnerException);
-            Console.WriteLine("=================");
+            Console.WriteLine("================="); */
             throw new ArgumentException($"Error with chunk for fileId {uploadRequestDto.FileId}, error {e.Message}");
         }
     }
@@ -82,10 +87,5 @@ public class FilesRepository : IFilesRepository
         var file = await _dbContext.Files.FirstOrDefaultAsync(f => f.Id == id);
         return file;
 
-    }
-
-    public Task<bool> UploadTemporalyChunk(Guid fileId, string chunck, int number, bool publicChunk)
-    {
-        throw new NotImplementedException();
     }
 }

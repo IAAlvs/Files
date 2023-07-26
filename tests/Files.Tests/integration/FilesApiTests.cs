@@ -7,6 +7,8 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
+/* using FluentValidation.AspNetCore;
+using System.Reflection; */
 using FluentValidation;
 using Files.Interfaces;
 using Files.Repositories;
@@ -14,7 +16,6 @@ using Files.Services;
 using Files.Models;
 using Files.Clients;
 using Files.AspectDefinitions;
-using Microsoft.AspNetCore.Authorization;
 using NSubstitute;
 
 public class FilesApiTests
@@ -38,6 +39,10 @@ public class FilesApiTests
                         policy.RequireAssertion(context => true);
                     });
                 });
+                services.AddSingleton<IValidator<string>, GuidValidator>();
+                services.AddSingleton<IValidator<UploadChunkRequestDto>, UploadChunksRequestDtoValidor>();
+
+
                 var mockStorage = Substitute.For<IStorageService>();
                 //MOCKING ITEMS STORAGE SERVICE
                     //Returnt for every call 
@@ -52,7 +57,7 @@ public class FilesApiTests
                 services.AddScoped<IRequestInvoker, RequestInvoker>();
                 services.AddScoped<IFiles, FilesService>();
                 services.AddRouting();
-                services.AddControllers();
+                //services.AddControllers();
                 var serviceProvider = services.BuildServiceProvider();
 
             // Ejecuta las migraciones en la base de datos de prueba
@@ -66,7 +71,7 @@ public class FilesApiTests
             .Configure(app => 
             {
                 app.UseRouting();
-                app.UseAuthentication();
+                //app.UseAuthentication();
                 app.UseAuthorization();
                 app.UseEndpoints(appEndpoints => FilesEndpointDefinition.DefineEndpoints(appEndpoints));
                 //FilesEndpointDefinition.DefineEndpoints(app.);
@@ -78,7 +83,7 @@ public class FilesApiTests
         // Arrange
         var filesService = Substitute.For<IFiles>();
         var id = Guid.NewGuid();
-        var newChunk = new UploadChunkRequestDto(id , 1, "SVG123", 6, 6, "svg", "filename");
+        var newChunk = new UploadChunkRequestDto(id , 1, "SVG123", 4, 4, "svg", "filename");
         var newChunkRes = new UploadChunkResponseDto(id , "success");
         filesService.UploadChunks(newChunk).Returns(newChunkRes);
 
@@ -101,7 +106,7 @@ public class FilesApiTests
         // Arrange
         var filesService = Substitute.For<IFiles>();
         var fileId = Guid.NewGuid();
-        var newChunk = new UploadChunkRequestDto(fileId , 1, "SVG123", 6, 6, "svg", "filename");
+        var newChunk = new UploadChunkRequestDto(fileId , 1, "SVG123", 4, 4, "svg", "filename");
 
         var uploadRes = new UploadFileResponseDto(fileId, null, "File uploaded successfully");
         filesService.UploadFile(fileId).Returns(uploadRes);
@@ -127,7 +132,7 @@ public class FilesApiTests
         // Arrange
         var filesService = Substitute.For<IFiles>();
         var fileId = Guid.NewGuid();
-        var newChunk = new UploadChunkRequestDto(fileId , 1, "SVG123", 6, 6, "svg", "filename2");
+        var newChunk = new UploadChunkRequestDto(fileId , 1, "SVG123", 4, 4, "svg", "filename2");
 
         var uploadRes = new UploadFileResponseDto(fileId, "url", "File uploaded successfully");
         filesService.UploadPublicFile(fileId).Returns(uploadRes);
@@ -156,8 +161,8 @@ public class FilesApiTests
         // Arrange
         var filesService = Substitute.For<IFiles>();
         var fileId = Guid.NewGuid();
-        var newChunk = new UploadChunkRequestDto(fileId , 1, "SVG123", 6, 6, "svg", "filename2");
-        var newChunk2 = new UploadChunkRequestDto(fileId , 2, "SVG123", 6, 6, "svg", "filename2");
+        var newChunk = new UploadChunkRequestDto(fileId , 1, "SVG123", 4, 4, "svg", "filename2");
+        var newChunk2 = new UploadChunkRequestDto(fileId , 2, "SVG123", 4, 4, "svg", "filename2");
         var uploadRes = new UploadFileResponseDto(fileId, "url", "File uploaded successfully");
         filesService.UploadFile(fileId).Returns(uploadRes);
         var client = _server.CreateClient();
@@ -183,8 +188,8 @@ public class FilesApiTests
         // Arrange
         var filesService = Substitute.For<IFiles>();
         var fileId = Guid.NewGuid();
-        var newChunk = new UploadChunkRequestDto(fileId , 1, "SVG123", 6, 6, "svg", "filename2");
-        var newChunk2 = new UploadChunkRequestDto(fileId , 2, "SVG123", 6, 6, "svg", "filename2");
+        var newChunk = new UploadChunkRequestDto(fileId , 1, "SVG123", 4, 4, "svg", "filename2");
+        var newChunk2 = new UploadChunkRequestDto(fileId , 2, "SVG123", 4, 4, "svg", "filename2");
         var uploadRes = new UploadFileResponseDto(fileId, "url", "File uploaded successfully");
         filesService.UploadPublicFile(fileId).Returns(uploadRes);
         var client = _server.CreateClient();
@@ -217,7 +222,7 @@ public class FilesApiTests
         //upload chuck according fileId
         var response = await client.PostAsync($"/api/v1/files/upload/{fileId}", content);        
         // Assert
-        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
     [Fact]
     public async Task UploadPublicFiles_FileIdWithOutChunks_ReturnsConflict()
@@ -232,7 +237,7 @@ public class FilesApiTests
         //upload chuck according fileId
         var response = await client.PostAsync($"/api/v1/files/upload-public/{fileId}", content);        
         // Assert
-        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
     [Fact]
     public async Task GetFileById_FileId_ReturnsFile()
@@ -240,7 +245,7 @@ public class FilesApiTests
         // Arrange
         var filesService = Substitute.For<IFiles>();
         var fileId = Guid.Parse("e468e4c5-0b6d-4451-b75a-31f0dd2208e7");
-        var newChunk = new UploadChunkRequestDto(fileId , 1, "SVG123", 6, 6, "svg", "filename2");
+        var newChunk = new UploadChunkRequestDto(fileId , 1, "SVG123", 4, 4, "svg", "filename2");
         var uploadRes = new UploadFileResponseDto(fileId, "url", "File uploaded successfully");
         filesService.UploadPublicFile(fileId).Returns(uploadRes);
         var client = _server.CreateClient();
