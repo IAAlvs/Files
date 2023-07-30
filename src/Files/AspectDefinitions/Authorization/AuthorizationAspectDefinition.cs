@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.IdentityModel.Logging;
 using Microsoft.IdentityModel.Tokens;
 
 namespace Files.AspectDefinitions.Authorization;
@@ -9,6 +10,10 @@ public class AuthorizationAspectDefinition
 {
     public static void DefineAspect(IServiceCollection services, IConfiguration configuration)
     {
+        if (configuration["ASPNETCORE_ENVIRONMENT"] == "Development")
+        {
+            IdentityModelEventSource.ShowPII = true; 
+        }
         var domain = $"https://{configuration["AUTH0_DOMAIN"]}/";
         services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             .AddJwtBearer(options =>
