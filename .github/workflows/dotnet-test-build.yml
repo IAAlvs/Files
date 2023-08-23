@@ -1,63 +1,66 @@
-name: Express API Build and Deploy
+name: Dotnet 7 Web API Unit Tests
+
 on:
   push:
-    branches: [main]
+    branches:
+      - main
   pull_request:
-    branches: [main]
+    branches:
+      - main
 
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
-
-    strategy:
-      matrix:
-        node-version: [16.x, 18.x]
-    
     steps:
-    - uses: actions/checkout@v2
-    
-    - name: Use Node.js ${{ matrix.node-version }}
-      uses: actions/setup-node@v2
-      with:
-        node-version: ${{ matrix.node-version }}
-        cache: 'npm'
-    
-    - run: npm ci
-    - run: npm test
-    
-  push:
-    name: Build and Push Docker Image
+      - uses: actions/checkout@v2
+      
+      - name: Setup .NET Core SDK
+        uses: actions/setup-dotnet@v1
+        with:
+          dotnet-version: '7.0.x'
+          
+      - name: Restore dependencies
+        run: dotnet restore
+
+      - name: Build project
+        run: dotnet build --configuration Release --no-restore
+
+      - name: Run unit tests
+        run: dotnet test
+  build-push:
+    name: Build/Push
     runs-on: ubuntu-latest
     needs: build-and-test
-    strategy:
-      matrix:
-        node-version: [18.x] # Version what its going to be done before push
-    
     steps:
-    - name: Check out code
-      uses: actions/checkout@v2
-    - name: Setup commit sha
-      uses: benjlevesque/short-sha@v1.2
-      id: short-sha
-      with:
-        length: 7
-    
-    - name: Configure AWS credentials
-      uses: aws-actions/configure-aws-credentials@v1
-      with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: us-east-1
-    
-    - name: Login to Amazon ECR
-      id: login-ecr
-      uses: aws-actions/amazon-ecr-login@v1
-    
-    - name: Build, tag, and push image to Amazon ECR
-      env:
-        ECR_REGISTRY: 232187837350.dkr.ecr.us-east-1.amazonaws.com
-        ECR_REPOSITORY: users
-        IMAGE_TAG: ${{ steps.short-sha.outputs.sha }}
-      run: |
-          docker tag $ECR_REPOSITORY:${{ steps.short-sha.outputs.sha }} $ECR_REGISTRY/$ECR_REPOSITORY:${{ steps.short-sha.outputs.sha }}
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:${{ steps.short-sha.outputs.sha }}
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v1
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
+
+      - name: Setup commit sha
+        uses: benjlevesque/short-sha@v1.2
+        id: short-sha
+        with:
+          length: 7
+
+      - name: Build non-master
+        run: docker build --tag files:${{ steps.short-sha.outputs.sha }} .
+
+      - name: Build main
+        if: ${{ github.ref == 'refs/heads/main' && github.event_name == 'push' }}
+        uses: jwalton/gh-ecr-push@v1
+        env:
+          REGISTRY: 232187837350.dkr.ecr.us-east-1.amazonaws.com
+          IMAGE: files
+          SHA: ${{ steps.short-sha.outputs.sha }}
+          REF: ${{ github.ref }}
+          ISMASTER: ${{ github.ref == 'main' }}
+        with:
+          access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          region: us-east-1
+          image: ${{env.IMAGE}}:${{ env.SHA }}
