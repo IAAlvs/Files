@@ -13,6 +13,8 @@ public class StorageService : IStorageService
     public string AccessKey { get; }
     public string SecretKey { get; }
     public string BucketName { get; }
+    public string PublicBucketName { get; }
+
     public string BucketRegion { get; }
     public StorageService(IConfiguration config, ILogger<IStorageService> logger)
     {
@@ -21,6 +23,7 @@ public class StorageService : IStorageService
         AccessKey = _config["AWS_ACCESS_KEY"]!;
         SecretKey = _config["AWS_SECRET_KEY"]!;
         BucketName = _config["AWS_BUCKET_NAME"]!;
+        PublicBucketName = _config["AWS_PUBLIC_BUCKET_NAME"]!;
         BucketRegion = _config["AWS_BUCKET_REGION"]!;
         var regionAsRegion = RegionEndpoint.GetBySystemName(BucketRegion);
         _awsClient = new AmazonS3Client(AccessKey, SecretKey, regionAsRegion);
@@ -34,10 +37,10 @@ public class StorageService : IStorageService
         AccessKey = _config["AWS_ACCESS_KEY"]!;
         SecretKey = _config["AWS_SECRET_KEY"]!;
         BucketName = _config["AWS_BUCKET_NAME"]!;
+        PublicBucketName = _config["AWS_PUBLIC_BUCKET_NAME"]!;
         BucketRegion = _config["AWS_BUCKET_REGION"]!;
         _awsClient = awsClient;        
         _logger = logger;
-
     }
     public async Task<bool> CheckIfExistsItem(string key)
     {
@@ -109,7 +112,7 @@ public class StorageService : IStorageService
         // create putRequest to upload file
         var putRequest = new PutObjectRequest
         {
-            BucketName = BucketName,
+            BucketName = PublicBucketName,
             Key = fileId,
             InputStream = new MemoryStream(bytes)
         };
