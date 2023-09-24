@@ -65,7 +65,7 @@ public class StorageService : IStorageService
             }
         }
     }
-
+    /* Only works for private files, public files can be access throught its url */
     public async Task<string> GetFileById(string id)
     {
         var request = new GetObjectRequest
@@ -120,13 +120,13 @@ public class StorageService : IStorageService
             var response = await _awsClient.PutObjectAsync(putRequest);
             var aclRequest = new PutACLRequest
             {
-                BucketName = BucketName,
+                BucketName = PublicBucketName,
                 Key = fileId,
                 CannedACL = S3CannedACL.PublicRead
             };
 
             PutACLResponse aclResponse = await _awsClient.PutACLAsync(aclRequest);
-            return $"https://{BucketName}.s3.amazonaws.com/{fileId}";
+            return $"https://{PublicBucketName}.s3.amazonaws.com/{fileId}";
         }
         catch(Exception e){
             LogError(e);
