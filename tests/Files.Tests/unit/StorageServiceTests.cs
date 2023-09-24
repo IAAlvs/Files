@@ -152,6 +152,6 @@ public class StorageServiceTests
         // When
         var response = await service.UploadPublicFile(fileId, fileB64);
         // Then
-        Assert.Equal(response, $"https://{service.BucketName}.s3.amazonaws.com/{fileId}");
+        Assert.Equal(response, $"https://{service.PublicBucketName}.s3.amazonaws.com/{fileId}");
     }   
 }
