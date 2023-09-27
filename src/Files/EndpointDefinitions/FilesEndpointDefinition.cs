@@ -143,6 +143,7 @@ public class FilesEndpointDefinition{
     {
         ValidationException ex => Results.UnprocessableEntity(new { errors = ex.Errors.Select(x => $"{x.PropertyName} {x.ErrorMessage}") }),
         InvalidOperationException => Results.Conflict(BuildErrorResponseDto(exc.Message)),
+        ArgumentNullException => Results.NotFound(BuildErrorResponseDto(exc.Message)),
         ArgumentException => Results.UnprocessableEntity(BuildErrorResponseDto(exc.Message)),
         KeyNotFoundException => Results.NotFound(BuildErrorResponseDto(exc.Message)),
         AggregateException => Results.Conflict(BuildErrorResponseDto(exc.Message)),

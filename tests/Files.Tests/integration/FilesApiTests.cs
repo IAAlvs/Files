@@ -100,19 +100,19 @@ public class FilesApiTests
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Equal(newChunkRes.Message, chunkCreated!.Message);
     }
-     [Fact]
+    [Fact]
     public async Task UploadFiles_FileId_ReturnsOk()
     {
         // Arrange
         var filesService = Substitute.For<IFiles>();
         var fileId = Guid.NewGuid();
-        var newChunk = new UploadChunkRequestDto(fileId , 1, "SVG123", 4, 4, "svg", "filename");
+        var newChunk = new UploadChunkRequestDto(fileId , 0, "SVG12332", 6, 6, "svg", "filename");
 
         var uploadRes = new UploadFileResponseDto(fileId, null, "File uploaded successfully");
         filesService.UploadFile(fileId).Returns(uploadRes);
         var client = _server.CreateClient();
         var chunkContent = new StringContent(JsonSerializer.Serialize(newChunk),
-         Encoding.UTF8, "application/json");
+        Encoding.UTF8, "application/json");
 
         var content = new StringContent("", Encoding.UTF8, "application/json");
         // Act

@@ -32,6 +32,11 @@ public class FilesServiceTests
                 12, 12, "SGVsbG8gV29ybGQh", DateTime.UtcNow, "svg", "filename")
             }
         );
+        _repository.GetChunksInfo(Arg.Is<Guid>(s =>
+            s== Guid.Parse("29986eb9-47a2-48ef-8891-da5fc0f71e30")
+        )).Returns(
+            new FileInfoBasedOnCHunks(Guid.Parse("29986eb9-47a2-48ef-8891-da5fc0f71e30"), 0,12,12,"svg","filename")
+        );
         _repository.JoinChunks(Arg.Is<List<Chunk>>(cs => cs.Any(c => c.FileId
         == Guid.Parse("29986eb9-47a2-48ef-8891-da5fc0f71e30")))).Returns("SGVsbG8gV29ybGQh");
         _repository.GetChunksOrderedByFileIdAsync(
@@ -226,8 +231,8 @@ public class FilesServiceTests
     {
         // Given
         var fileId = Guid.Parse("29986eb9-47a2-48ef-8891-da5fc0f71e25");
-        var uploadChunkDto = new UploadChunkRequestDto(fileId, 1, "SGVsbG8gV29ybGQh", 
-        16, 16, "svg", "filenameex");
+        var uploadChunkDto = new UploadChunkRequestDto(fileId, 0, "SGVsbG8gV29ybGQh", 
+        12, 12, "svg", "filenameex");
         // When
         var res = await _service.UploadChunks(uploadChunkDto);
         // Then
