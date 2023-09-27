@@ -2,6 +2,9 @@ using Files.Interfaces;
 using Amazon;
 using Amazon.S3;
 using Amazon.S3.Model;
+using Files.Models;
+
+
 namespace Files.Services;
 public class StorageService : IStorageService
 {
@@ -142,6 +145,62 @@ public class StorageService : IStorageService
         }
         _logger.LogError(errorMessage);
 
+    }
+    //Todo : TEST UPLOAD CHUNKED
+    public async Task<TResult> UploadChunked<T,TResult>(T dto) where T : ChunkedUploadDto where TResult : ChunkedUploadRes
+    {
+        //Console.WriteLine("Executes chunked");
+        var dtoC = (ChunkedUploadDtoAws)(object)dto;
+        var (base64Chunk, fileId, totalChunks, partNumber, etags, uploadId) = dtoC;
+        // Initialize request
+        var initRequest = new InitiateMultipartUploadRequest
+        {
+            BucketName = BucketName,
+            Key = fileId
+        };
+        /* Asign in first request */
+        if(uploadId == "")
+        {
+            var initResponse = await _awsClient.InitiateMultipartUploadAsync(initRequest);
+            uploadId = initResponse.UploadId;
+        }
+        //Console.WriteLine($"uploadId {uploadId}");
+
+        try
+        {
+            var bytes = Convert.FromBase64String(base64Chunk);
+            var stream = new MemoryStream(bytes);
+            var uploadPartRequest = new UploadPartRequest
+            {
+                BucketName = BucketName,
+                Key = fileId,
+                UploadId = uploadId,
+                PartNumber = partNumber,
+                PartSize = bytes.Length,
+                InputStream = stream
+            };
+            var uploadPartResponse = await _awsClient.UploadPartAsync(uploadPartRequest);
+            etags.Add(new PartETag { PartNumber = partNumber, ETag = uploadPartResponse.ETag });
+            if(partNumber< totalChunks)
+                return (TResult)(object)new ChunkedUploadResAws(uploadId, etags); //Right operation
+                        //Last part
+            var completeRequest = new CompleteMultipartUploadRequest
+            {
+                BucketName = BucketName,
+                Key = fileId,
+                UploadId = uploadId
+                
+            };
+            completeRequest.AddPartETags(etags);
+            var completeUploadResponse = await _awsClient.CompleteMultipartUploadAsync(completeRequest);
+            return (TResult)(object)new ChunkedUploadResAws("success", etags); // right operation 
+        }
+        catch (Exception e)
+        {
+            LogError(e);
+            //Console.WriteLine("Error: " + e.Message);
+            throw new ArgumentException($"Failed to upload file ");
+        }
     }
 
 }
