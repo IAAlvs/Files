@@ -23,45 +23,56 @@ public class FilesService : IFiles
         return file.ToSummaryDto(fileData);
     }
     private async Task<UploadFileResponseDto> UploadChunked(FileInfoBasedOnCHunks info){
-        int numOfChunks = Convert.ToInt32(info.FileSize/info.Size);
-        var remainder = info.FileSize%info.Size;
-        if(remainder>0) 
-            ++numOfChunks;
-        var calculateIterations = ChunksByRequest(info.FileSize, info.Size);
-        //Console.WriteLine($"Iterations {calculateIterations.iteration} number of chunks size {calculateIterations.numberOfChunks}");
-        //var etagList = 
-        ChunkedUploadDtoAws dtoChunked = new()
-        {
-            Etags = new List<PartETag>(),
-            UploadId = ""
-        };
-        for (int i = 0; i < calculateIterations.iteration; i++)
-        {   
-            List<Chunk> listC;
-            dtoChunked.FileId = info.FileId.ToString();
-            dtoChunked.TotalChunks = calculateIterations.iteration;
-            dtoChunked.PartNumber = i+1;
-            //Las iteration is the biggest
-            if(i == calculateIterations.iteration-1)
-                listC = await _repository.GetChunksRange(info.FileId, i * calculateIterations.numberOfChunks, numOfChunks -1);
-            else
-                listC = await _repository.GetChunksRange(info.FileId, i * calculateIterations.numberOfChunks, (i+1) * calculateIterations.numberOfChunks );
-            var chunk = await _repository.GetChunksByIndex(info.FileId, i)?? 
-            throw new ArgumentException($"Failed to read chunk index {i} of fileId {info.FileId}");
-            var base64Chunk = _repository.JoinChunks(listC);
-            dtoChunked.Base64Chunk = base64Chunk;
-             //= new ChunkedUploadDtoAws(base64Chunk, info.FileId.ToString(), calculateIterations.iteration, i+1, etagList, uploadId);
-            //Console.WriteLine($"UploadId {dtoChunked.FileId}");
-            //Console.WriteLine($"UploadId {dtoChunked.PartNumber}");
+        try{
+            int numOfChunks = Convert.ToInt32(info.FileSize/info.Size);
+            var remainder = info.FileSize%info.Size;
+            if(remainder>0) 
+                ++numOfChunks;
+            var calculateIterations = ChunksByRequest(info.FileSize, info.Size);
+            //Console.WriteLine($"Iterations {calculateIterations.iteration} number of chunks size {calculateIterations.numberOfChunks}");
+            //var etagList = 
+            ChunkedUploadDtoAws dtoChunked = new()
+            {
+                Etags = new List<PartETag>(),
+                UploadId = ""
+            };
+            for (int i = 0; i < calculateIterations.iteration; i++)
+            {   
+                List<Chunk> listC;
+                dtoChunked.FileId = info.FileId.ToString();
+                dtoChunked.TotalChunks = calculateIterations.iteration;
+                dtoChunked.PartNumber = i+1;
+                //Las iteration is the biggest
+                if(i == calculateIterations.iteration-1)
+                    listC = await _repository.GetChunksRange(info.FileId, i * calculateIterations.numberOfChunks, numOfChunks -1);
+                else
+                    listC = await _repository.GetChunksRange(info.FileId, i * calculateIterations.numberOfChunks, (i+1) * calculateIterations.numberOfChunks );
+                var chunk = await _repository.GetChunksByIndex(info.FileId, i)?? 
+                throw new ArgumentException($"Failed to read chunk index {i} of fileId {info.FileId}");
+                var base64Chunk = _repository.JoinChunks(listC);
+                dtoChunked.Base64Chunk = base64Chunk;
+                //= new ChunkedUploadDtoAws(base64Chunk, info.FileId.ToString(), calculateIterations.iteration, i+1, etagList, uploadId);
+                //Console.WriteLine($"UploadId {dtoChunked.FileId}");
+                //Console.WriteLine($"UploadId {dtoChunked.PartNumber}");
 
-            var uploaded = await _storageService.UploadChunked<ChunkedUploadDtoAws, ChunkedUploadResAws>(dtoChunked);
-            dtoChunked.Etags = uploaded.ETags;
-            dtoChunked.UploadId = uploaded.UploadId;
-            if(dtoChunked.UploadId == "")
-                throw new ArgumentException($"Failed to upload chunk index {i} of file {info.FileId}");
-            
+                var uploaded = await _storageService.UploadChunked<ChunkedUploadDtoAws, ChunkedUploadResAws>(dtoChunked);
+                dtoChunked.Etags = uploaded.ETags;
+                dtoChunked.UploadId = uploaded.UploadId;
+                if(dtoChunked.UploadId == "")
+                    throw new ArgumentException($"Failed to upload chunk index {i} of file {info.FileId}");
+                
+            }
+            var file = new Files.Models.File(info.FileId, DateTime.UtcNow, null!, info.Type, info.FileName, info.FileSize);
+            var fileSaved = await _repository.AddFile(file);
+            LogInfo(file);
+            return file.ToUploadFileResponseDto("File uploaded successfully");
         }
-        return new UploadFileResponseDto(info.FileId, null, "success");
+        catch (Exception err)
+        {
+            //Console.WriteLine(err);
+            LogError(err);
+            throw new ArgumentException($"Failed at upload file with id {info.FileId} error : {err}");
+        }
 
     }
     //Todo : TEST UPLOAD WHEN FILE IS GREATER THAN 20 MB
