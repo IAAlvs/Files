@@ -11,5 +11,5 @@ public interface IStorageService
     Task<bool> UploadFile(string fileId,string File); 
     Task<string> UploadPublicFile(string fileId,string File); 
     Task<TResult> UploadChunked<T, TResult>(T dto) where T : ChunkedUploadDto where TResult : ChunkedUploadRes;
-
+    Task<string> GetTemporalyUrlByFileId(string fileId, int minutesExp);
 }

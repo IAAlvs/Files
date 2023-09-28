@@ -14,13 +14,25 @@ public class FilesService : IFiles
         _repository = repository;
         _logger = logger;
     }
+    private int BytesToMb(BigInteger bytes) => (int)(bytes / 1024 / 1024);
+
     public async Task<GetFileSummaryDto?> GetFileById(Guid id)
     {
         var file = await _repository.GetFileById(id);
         if(file is null)
             return null;
-        var fileData = await _storageService.GetFileById(id.ToString());
-        return file.ToSummaryDto(fileData);
+        var fileMbSize = BytesToMb(new BigInteger(file.Size));
+        if(fileMbSize<5)
+        {
+            var fileData = await _storageService.GetFileById(id.ToString());
+            return file.ToSummaryDto(fileData);
+        }
+        //A minute for every 100mb
+        var minutes = 5 + (int)Math.Round((double)(fileMbSize/100));
+        //Files greater than 5 mb neeeds an url
+        var fileUrl = await _storageService.GetTemporalyUrlByFileId(file.Id.ToString(),minutes );
+        return file.ToSummaryUrlDto(fileUrl);
+
     }
     private async Task<UploadFileResponseDto> UploadChunked(FileInfoBasedOnCHunks info){
         try{
@@ -188,7 +200,6 @@ public class FilesService : IFiles
         //Total chunks most of time will leave a remainer
         return new ChunksByRequestDto(iteration, numberOfChunks);  
     }
-    private float BytesToMb(BigInteger bytes) => ((float)(bytes /1024*1024));
     private void LogInfo(Files.Models.File fileUploaded)
     {
         _logger.LogInformation("Uploaded {@File} on {Date} -Server- ", fileUploaded, DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss"));

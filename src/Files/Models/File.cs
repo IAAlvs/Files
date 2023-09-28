@@ -24,6 +24,7 @@ public class File
     public static File CreateFromDto(string fileUrl, string fileType, string fileName, int size) =>
     new File(Guid.NewGuid(), DateTime.Now, fileUrl, type: fileType, name: fileName, size: size);
    /* DATA IS NOT SAVED IN DB, IS SAVED IN CLOUD STORAGE */
-   public GetFileSummaryDto ToSummaryDto(string data) => new(this.Id, this.Name, this.Type, data, this.Size, this.Url);
-   public UploadFileResponseDto ToUploadFileResponseDto(string message) => new(this.Id, this.Url, message);
+    public GetFileSummaryDto ToSummaryDto(string data) => new(this.Id, this.Name, this.Type, data, this.Size, this.Url);
+    public GetFileSummaryDto ToSummaryUrlDto(string url) => new(this.Id, this.Name, this.Type, "", this.Size, url);
+    public UploadFileResponseDto ToUploadFileResponseDto(string message) => new(this.Id, this.Url, message);
 }

@@ -203,4 +203,27 @@ public class StorageService : IStorageService
         }
     }
 
+    public Task<string> GetTemporalyUrlByFileId(string fileId, int minutesExp)
+    {
+        //Just for private buckets
+        try{
+        var request = new GetPreSignedUrlRequest
+        {
+            BucketName = BucketName,
+            Key = fileId,
+            Expires = DateTime.UtcNow.AddMinutes(minutesExp),
+            Protocol = Protocol.HTTPS // Usar HTTPS para mayor seguridad
+            
+        };
+        var url =  _awsClient.GetPreSignedURL(request);
+        return Task.FromResult(url);
+        }
+        catch(Exception e)
+        {
+            LogError(e);
+            //Console.WriteLine("Error: " + e.Message);
+            throw new ArgumentException($"Failed to get file url of file {fileId}");
+
+        }
+    }
 }
