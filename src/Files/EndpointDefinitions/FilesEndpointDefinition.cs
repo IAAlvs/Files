@@ -21,6 +21,7 @@ public class FilesEndpointDefinition{
         var config = new ConfigurationBuilder().AddJsonFile("appsettings.json").AddEnvironmentVariables().Build();
         var filesOptionsBuilder = new DbContextOptionsBuilder<FilesDbContext>();
         filesOptionsBuilder.UseNpgsql(config["DB_CONNECTION"]);
+        services.AddSingleton<IVerifyChunk, VerifyChunk>();
         services.AddDatabaseDeveloperPageExceptionFilter();
         services.AddDbContext<FilesDbContext>(options => options.UseNpgsql(config["DB_CONNECTION"]));
         services.AddScoped<IFilesRepository, FilesRepository>();

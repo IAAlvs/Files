@@ -11,6 +11,7 @@ public class FilesServiceTests
     private readonly IStorageService _storage;
     private readonly IFilesRepository _repository;
     private readonly ILogger<IFiles> _logger;
+    private readonly IVerifyChunk _verifyChunk;
 
     /* 
     Calculate number of bytes based on string length == ( (string.length/4)*3 ) += 2
@@ -20,10 +21,12 @@ public class FilesServiceTests
         _storage = Substitute.For<IStorageService>();
         _repository = Substitute.For<IFilesRepository>();
         _logger = Substitute.For<ILogger<IFiles>>();
+        _verifyChunk = new VerifyChunk();
         _repository.GetFileById(Guid.Parse("29986eb9-47a2-48ef-8891-da5fc0f71e47")).Returns(
             new Files.Models.File(Guid.Parse("29986eb9-47a2-48ef-8891-da5fc0f71e47"),
-            DateTime.UtcNow, "url", "svg", "filename", (int)(("SGVsbG8gV29ybGQh".Length/4)*3))
+            DateTime.UtcNow, null!, "svg", "filename", (int)(("SGVsbG8gV29ybGQh".Length/4)*3))
         );
+        
         _repository.GetChunksByFileIdAsync(Arg.Is<Guid>(s =>
             s== Guid.Parse("29986eb9-47a2-48ef-8891-da5fc0f71e30")
         )).Returns(
@@ -70,23 +73,48 @@ public class FilesServiceTests
             dto => dto.FileId == Guid.Parse("29986eb9-47a2-48ef-8891-da5fc0f71e25")
         )).Returns(true);
 
-        _service = new FilesService(_storage, _repository, _logger);
+        _service = new FilesService(_storage, _repository, _logger, _verifyChunk);
         
+    }
+        [Fact]
+    public async void GetPublicFileById_FileExist_FileGiven()
+    {
+        // Given
+        string fileId = "29986eb9-47a2-48ef-8891-da5fc0f71e45";
+        string publicUrl = "https://everavailableurl.com";
+        _repository.GetFileById(Guid.Parse("29986eb9-47a2-48ef-8891-da5fc0f71e45")).Returns(
+            new Files.Models.File(Guid.Parse("29986eb9-47a2-48ef-8891-da5fc0f71e45"),
+            DateTime.UtcNow, publicUrl, "pdf", "filenamepublic", (int)(("SGVsbG8gV29ybGQh".Length/4)*3))
+        );
+        Guid id = Guid.Parse(fileId); 
+        // When
+        var myFile = await _service.GetFileById(id);
+        // Then
+        Assert.Equal(id, myFile!.Id);
+        Assert.Equal("filenamepublic" , myFile!.FileName);
+        Assert.Equal("pdf", myFile!.FileType);
+        Assert.Equal("", myFile!.Data);
+        Assert.Equal(12, myFile!.FileSize);
+        Assert.Equal(publicUrl, myFile!.FileUrl);
     }
     [Fact]
     public async void GetFileById_FileExist_FileGiven()
     {
         // Given
-        Guid id = Guid.Parse("29986eb9-47a2-48ef-8891-da5fc0f71e47"); 
+        string fileId = "29986eb9-47a2-48ef-8891-da5fc0f71e47";
+        Guid id = Guid.Parse(fileId); 
+        string mockUrlToReturn = "https://urlfake.com";
+        _storage.GetTemporalyUrlByFileId(Arg.Is<string>(f =>f == fileId), Arg.Any<int>()).
+        Returns(mockUrlToReturn);
         // When
         var myFile = await _service.GetFileById(id);
         // Then
         Assert.Equal(id, myFile!.Id);
         Assert.Equal("filename" , myFile!.FileName);
         Assert.Equal("svg", myFile!.FileType);
-        Assert.Equal("SGVsbG8gV29ybGQh", myFile!.Data);
+        Assert.Equal("", myFile!.Data);
         Assert.Equal(12, myFile!.FileSize);
-        Assert.Equal("url", myFile!.FileUrl);
+        Assert.Equal(mockUrlToReturn, myFile!.FileUrl);
     }
     [Fact]
     public async void GetFileById_FileDontExist_FileGiven()
@@ -106,8 +134,9 @@ public class FilesServiceTests
         IStorageService lStorage = Substitute.For<IStorageService>();
         lStorage.CheckIfExistsItem("29986eb9-47a2-48ef-8891-da5fc0f71e30").Returns(false);
         lStorage.UploadPublicFile("29986eb9-47a2-48ef-8891-da5fc0f71e30", Arg.Any<string>()).Returns(
-            "url");
-        IFiles lservice = new FilesService(lStorage, _repository, _logger);
+        "url");
+
+        IFiles lservice = new FilesService(lStorage, _repository, _logger, _verifyChunk);
         // When
         var myFile = await lservice.UploadPublicFile(id);
         // Then
@@ -124,7 +153,7 @@ public class FilesServiceTests
         lStorage.UploadPublicFile("29986eb9-47a2-48ef-8891-da5fc0f71e328", Arg.Any<string>()).Returns(
             "url"
         );
-        IFiles lservice = new FilesService(lStorage, _repository, _logger);
+        IFiles lservice = new FilesService(lStorage, _repository, _logger, _verifyChunk);
         // When
         // Then
         await Assert.ThrowsAnyAsync<ArgumentNullException>(async() => 
@@ -140,7 +169,7 @@ public class FilesServiceTests
         lStorage.UploadPublicFile("29986eb9-47a2-48ef-8891-da5fc0f71e327", Arg.Any<string>()).Returns(
             "url"
         );
-        IFiles lservice = new FilesService(lStorage, _repository, _logger);
+        IFiles lservice = new FilesService(_storage, _repository, _logger, _verifyChunk);
         // When
         // Then
         await Assert.ThrowsAnyAsync<ArgumentException>(async() => 
@@ -156,7 +185,7 @@ public class FilesServiceTests
         lStorage.UploadPublicFile("29986eb9-47a2-48ef-8891-da5fc0f71e326", Arg.Any<string>()).Returns(
             "url"
         );
-        IFiles lservice = new FilesService(lStorage, _repository, _logger);
+        IFiles lservice = new FilesService(lStorage, _repository, _logger, _verifyChunk);
         // When
         // Then
         await Assert.ThrowsAnyAsync<ArgumentException>(async() => 
@@ -172,7 +201,7 @@ public class FilesServiceTests
         lStorage.UploadFile("29986eb9-47a2-48ef-8891-da5fc0f71e30", Arg.Any<string>()).Returns(
             true
         );
-        IFiles lservice = new FilesService(lStorage, _repository, _logger);
+        IFiles lservice = new FilesService(lStorage, _repository, _logger, _verifyChunk);
         // When
         var myFile = await lservice.UploadFile(id);
         // Then
@@ -188,7 +217,7 @@ public class FilesServiceTests
         lStorage.UploadFile("29986eb9-47a2-48ef-8891-da5fc0f71e328", Arg.Any<string>()).Returns(
             true
         );
-        IFiles lservice = new FilesService(lStorage, _repository, _logger);
+        IFiles lservice = new FilesService(lStorage, _repository, _logger, _verifyChunk);
         // When
         // Then
         await Assert.ThrowsAnyAsync<ArgumentNullException>(async() => 
@@ -204,7 +233,7 @@ public class FilesServiceTests
         lStorage.UploadFile("29986eb9-47a2-48ef-8891-da5fc0f71e327", Arg.Any<string>()).Returns(
             true
         );
-        IFiles lservice = new FilesService(lStorage, _repository, _logger);
+        IFiles lservice = new FilesService(lStorage, _repository, _logger, _verifyChunk);
         // When
         // Then
         await Assert.ThrowsAnyAsync<ArgumentException>(async() => 
@@ -220,7 +249,7 @@ public class FilesServiceTests
         lStorage.UploadFile("29986eb9-47a2-48ef-8891-da5fc0f71e326", Arg.Any<string>()).Returns(
             true
         );
-        IFiles lservice = new FilesService(lStorage, _repository, _logger);
+        IFiles lservice = new FilesService(_storage, _repository, _logger, _verifyChunk);
         // When
         // Then
         await Assert.ThrowsAnyAsync<ArgumentException>(async() => 
