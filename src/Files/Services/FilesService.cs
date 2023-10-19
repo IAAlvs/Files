@@ -1,4 +1,3 @@
-using System.Numerics;
 using Amazon.S3.Model;
 using Files.Interfaces;
 using Files.Models;
@@ -8,39 +7,34 @@ public class FilesService : IFiles
     private readonly IStorageService _storageService;
     private readonly IFilesRepository _repository;
     private readonly ILogger _logger;
-    public FilesService(IStorageService storageService, IFilesRepository repository, ILogger<IFiles> logger)
+    private readonly IVerifyChunk _ruleCalculator;
+
+    public FilesService(IStorageService storageService, IFilesRepository repository, ILogger<IFiles> logger, IVerifyChunk verifyChunk)
     {
         _storageService = storageService;
         _repository = repository;
+        _ruleCalculator = verifyChunk;
         _logger = logger;
     }
-    private int BytesToMb(BigInteger bytes) => (int)(bytes / 1024 / 1024);
-
     public async Task<GetFileSummaryDto?> GetFileById(Guid id)
     {
         var file = await _repository.GetFileById(id);
-        if(file is null)
+        if (file is null)
             return null;
-        var fileMbSize = BytesToMb(new BigInteger(file.Size));
-        if(fileMbSize<5)
-        {
-            var fileData = await _storageService.GetFileById(id.ToString());
-            return file.ToSummaryDto(fileData);
-        }
-        //A minute for every 100mb
-        var minutes = 5 + (int)Math.Round((double)(fileMbSize/100));
-        //Files greater than 5 mb neeeds an url
-        var fileUrl = await _storageService.GetTemporalyUrlByFileId(file.Id.ToString(),minutes );
+        // If file has a Url saved in db it means is public */
+        int temporalyUrlMinutes = _ruleCalculator.UrlAvailabilityBasedOnSize(file.Size);
+        // Files greater than 5 mb neeeds an url
+        var fileUrl = file.Url ?? await _storageService.GetTemporalyUrlByFileId(file.Id.ToString(), temporalyUrlMinutes);
         return file.ToSummaryUrlDto(fileUrl);
-
     }
+
     private async Task<UploadFileResponseDto> UploadChunked(FileInfoBasedOnCHunks info){
         try{
             int numOfChunks = Convert.ToInt32(info.FileSize/info.Size);
             var remainder = info.FileSize%info.Size;
             if(remainder>0) 
                 ++numOfChunks;
-            var calculateIterations = ChunksByRequest(info.FileSize, info.Size);
+            var calculateIterations = _ruleCalculator.ChunksByRequest(info.FileSize, info.Size);
             //Console.WriteLine($"Iterations {calculateIterations.iteration} number of chunks size {calculateIterations.numberOfChunks}");
             //var etagList = 
             ChunkedUploadDtoAws dtoChunked = new()
@@ -74,9 +68,10 @@ public class FilesService : IFiles
                     throw new ArgumentException($"Failed to upload chunk index {i} of file {info.FileId}");
                 
             }
-            var file = new Files.Models.File(info.FileId, DateTime.UtcNow, null!, info.Type, info.FileName, info.FileSize);
+            var file = new Models.File(info.FileId, DateTime.UtcNow, null!, info.Type, info.FileName, info.FileSize);
             var fileSaved = await _repository.AddFile(file);
             LogInfo(file);
+            _repository.DeleteChunksByFileId(info.FileId);
             return file.ToUploadFileResponseDto("File uploaded successfully");
         }
         catch (Exception err)
@@ -92,7 +87,7 @@ public class FilesService : IFiles
     public async Task<UploadFileResponseDto?> UploadFile(Guid id)
     {
         var chunkWithData = await _repository.GetChunksInfo(id) ??  throw new ArgumentNullException($"File for id {id} was not found");
-        if (BytesToMb(chunkWithData.FileSize)>20){
+        if (_ruleCalculator.BytesToMb(chunkWithData.FileSize)>20){
             return await UploadChunked(chunkWithData);
         }
         List<Chunk> chunksWithFileId = await GetChunksForFileId(id);
@@ -120,10 +115,8 @@ public class FilesService : IFiles
     public async Task<UploadChunkResponseDto> UploadChunks(UploadChunkRequestDto chunkRequestDto)
     {
         var chunkToUpload = Chunk.CreateFromDto(chunkRequestDto);
-        var expectedBytesSize = chunkRequestDto.Data.Length/(4)*3;
-        var errorRange = ((expectedBytesSize*0.0001)<2)?2:expectedBytesSize*0.0001;
-        if (Math.Abs(expectedBytesSize - chunkRequestDto.Size) > errorRange || Math.Abs(expectedBytesSize - chunkRequestDto.Size) > errorRange )
-            throw new FormatException("Chunk size not according current chunk length");
+        var expectedBytesSize = _ruleCalculator.CalculateBytesBasedOnBase64(chunkRequestDto.Data);
+        _ruleCalculator.CheckDividedChunkErrorSize(expectedBytesSize, chunkRequestDto.Size);
         var upload = await _repository.UploadTemporalyChunk(chunkRequestDto);
         return new UploadChunkResponseDto(chunkToUpload.Id, upload  ?"success":"failed at upload chunk");
     }
@@ -137,11 +130,8 @@ public class FilesService : IFiles
         var fileString = _repository.JoinChunks(chunksWithFileId);
         var sum = 0;
         chunksWithFileId.ForEach(c => sum += c.Size);
-        var expectedBytesSize = ((int)(fileString.Length/4)*3);
-        var errorRange = ((expectedBytesSize*0.0001)<2)?2:expectedBytesSize*0.0001;
-        if (Math.Abs(expectedBytesSize - sum) > errorRange || Math.Abs(expectedBytesSize - chunkWithData.FileSize) > errorRange )
-            throw new FormatException("Sum of chunks saved is greather that fileSize of sum of chunks");
-        //save file
+        var expectedBytesSize = _ruleCalculator.CalculateBytesBasedOnBase64(fileString);
+        _ruleCalculator.CheckDividedChunkErrorSize(expectedBytesSize, chunkWithData.Size);
         try
         {
             var urlOfElement = await _storageService.UploadPublicFile(id.ToString(), fileString);
@@ -162,7 +152,6 @@ public class FilesService : IFiles
         //Check if file is not currently in db
         var fileInDb = await _repository.GetFileById(id);
         var fileInStorage = await _storageService.CheckIfExistsItem(id.ToString());
-        //Todo: log this
         string errorMessage;
         if (fileInDb != null)
         {
@@ -189,16 +178,6 @@ public class FilesService : IFiles
         }
         _logger.LogError(errorMessage);
 
-    }
-    //Todo : CHUNKS BY REQUEST
-
-    private ChunksByRequestDto ChunksByRequest(int fileSize, int chunkNormalSize){
-        //Normal size is the size of all chunk except 1 in the most of times
-        const int CHUNK_MIN_BYTES_SIZE = 6*1024*1024; //MB
-        var iteration = Convert.ToInt32(fileSize/CHUNK_MIN_BYTES_SIZE);
-        var numberOfChunks = Convert.ToInt32(Math.Round((double)(CHUNK_MIN_BYTES_SIZE/chunkNormalSize)));
-        //Total chunks most of time will leave a remainer
-        return new ChunksByRequestDto(iteration, numberOfChunks);  
     }
     private void LogInfo(Files.Models.File fileUploaded)
     {

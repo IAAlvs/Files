@@ -31,6 +31,7 @@ public class FilesApiTests
                 var filesOptionsBuilder = new DbContextOptionsBuilder<FilesDbContext>();
                 filesOptionsBuilder.UseSqlite("DataSource=file::memory:?cache=shared");
                 services.AddSingleton<IConfiguration>(config);
+                services.AddSingleton<IVerifyChunk, VerifyChunk>();
                 //Policy is required
                 services.AddAuthorization(options =>
                 {
